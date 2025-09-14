@@ -9,23 +9,14 @@ clear
 echo -e "\033[1;32m=== Auto Setup Swap RAM (/swapfile only) ===\033[0m"
 echo
 
-# Cek apakah /swapfile aktif
+# Hapus semua swap lama (swapfile1, swapfile2, dll)
+swapoff -a
+sed -i '/swapfile/d' /etc/fstab
+rm -f /swapfile*
+
+# Kalau sudah ada /swapfile aktif, stop
 if swapon --show | awk '{print $1}' | grep -qw "/swapfile"; then
     echo -e "\033[1;33mSwap sudah aktif di /swapfile.\033[0m"
-    swapon --show | grep "/swapfile"
-    exit 0
-fi
-
-# Kalau file ada tapi belum aktif
-if [ -f /swapfile ]; then
-    echo -e "\033[1;33mFile /swapfile ditemukan tapi belum aktif, mengaktifkan...\033[0m"
-    chmod 600 /swapfile
-    mkswap /swapfile >/dev/null 2>&1
-    swapon /swapfile
-    if ! grep -q "^/swapfile" /etc/fstab; then
-        echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    fi
-    echo -e "\033[1;32mSwap berhasil diaktifkan di /swapfile!\033[0m"
     swapon --show | grep "/swapfile"
     exit 0
 fi
@@ -40,18 +31,20 @@ mkswap /swapfile
 swapon /swapfile
 
 # Tambahkan ke fstab biar permanen
-if ! grep -q "^/swapfile" /etc/fstab; then
+if ! grep -qw "/swapfile" /etc/fstab; then
     echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
 # Optimasi swappiness dan cache pressure
 SYSCTL_CONF="/etc/sysctl.conf"
-if ! grep -q "vm.swappiness" $SYSCTL_CONF; then
+grep -q "vm.swappiness" $SYSCTL_CONF && \
+    sed -i 's/^vm.swappiness.*/vm.swappiness=10/' $SYSCTL_CONF || \
     echo "vm.swappiness=10" >> $SYSCTL_CONF
-fi
-if ! grep -q "vm.vfs_cache_pressure" $SYSCTL_CONF; then
+
+grep -q "vm.vfs_cache_pressure" $SYSCTL_CONF && \
+    sed -i 's/^vm.vfs_cache_pressure.*/vm.vfs_cache_pressure=50/' $SYSCTL_CONF || \
     echo "vm.vfs_cache_pressure=50" >> $SYSCTL_CONF
-fi
+
 sysctl -p >/dev/null
 
 echo -e "\n\033[1;32mSwap berhasil dibuat dan diaktifkan di /swapfile!\033[0m"
