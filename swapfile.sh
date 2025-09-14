@@ -1,18 +1,18 @@
 #!/bin/bash
 # =========================================
-# Script: Auto Setup Swap RAM
+# Script: Auto Setup Swap RAM (/swapfile only)
 # OS Support: Ubuntu 20.04-25.04 & Debian 11-12
 # Author: Ari Setiawan
 # =========================================
 
 clear
-echo -e "\033[1;32m=== Auto Setup Swap RAM ===\033[0m"
+echo -e "\033[1;32m=== Auto Setup Swap RAM (/swapfile only) ===\033[0m"
 echo
 
-# Cek apakah ada swap aktif
-if swapon --show | grep -q "/swapfile"; then
+# Cek apakah /swapfile aktif
+if swapon --show | awk '{print $1}' | grep -qw "/swapfile"; then
     echo -e "\033[1;33mSwap sudah aktif di /swapfile.\033[0m"
-    swapon --show
+    swapon --show | grep "/swapfile"
     exit 0
 fi
 
@@ -22,32 +22,27 @@ if [ -f /swapfile ]; then
     chmod 600 /swapfile
     mkswap /swapfile >/dev/null 2>&1
     swapon /swapfile
-    if ! grep -q "/swapfile" /etc/fstab; then
+    if ! grep -q "^/swapfile" /etc/fstab; then
         echo '/swapfile none swap sw 0 0' >> /etc/fstab
     fi
-    echo -e "\033[1;32mSwap berhasil diaktifkan!\033[0m"
-    swapon --show
+    echo -e "\033[1;32mSwap berhasil diaktifkan di /swapfile!\033[0m"
+    swapon --show | grep "/swapfile"
     exit 0
 fi
 
-# Minta ukuran swap
+# Kalau belum ada, bikin baru
 read -p "Masukkan ukuran swap (contoh: 1G atau 2048M): " SWAP_SIZE
 
-# Buat swapfile baru
-echo -e "\nMembuat swap file sebesar $SWAP_SIZE ..."
+echo -e "\nMembuat swap file sebesar $SWAP_SIZE di /swapfile ..."
 fallocate -l $SWAP_SIZE /swapfile
-
-# Set izin file
 chmod 600 /swapfile
-
-# Format swap
 mkswap /swapfile
-
-# Aktifkan swap
 swapon /swapfile
 
 # Tambahkan ke fstab biar permanen
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+if ! grep -q "^/swapfile" /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
 
 # Optimasi swappiness dan cache pressure
 SYSCTL_CONF="/etc/sysctl.conf"
@@ -59,8 +54,8 @@ if ! grep -q "vm.vfs_cache_pressure" $SYSCTL_CONF; then
 fi
 sysctl -p >/dev/null
 
-echo -e "\n\033[1;32mSwap berhasil dibuat dan diaktifkan!\033[0m"
+echo -e "\n\033[1;32mSwap berhasil dibuat dan diaktifkan di /swapfile!\033[0m"
 echo "---------------------------------"
-swapon --show
+swapon --show | grep "/swapfile"
 free -h
 echo "---------------------------------"
